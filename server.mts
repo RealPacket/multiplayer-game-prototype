@@ -1,6 +1,7 @@
-import {WebSocketServer, WebSocket} from 'ws';
+import { WebSocketServer, WebSocket } from 'ws';
 import * as common from './common.mjs'
 import {PlayerMoving, PlayerJoined, PlayerLeft, Player, Event, Hello, Direction} from './common.mjs'
+import StatsServer from './stats.mjs';
 
 namespace Stats {
     const AVERAGE_CAPACITY = 30;
@@ -134,6 +135,7 @@ let bytesReceivedWithinTick = 0;
 const wss = new WebSocketServer({
     port: common.SERVER_PORT,
 })
+const server = new StatsServer();
 const joinedIds = new Set<number>()
 const leftIds = new Set<number>()
 
@@ -344,6 +346,23 @@ function tick() {
     bytesReceivedWithinTick = 0;
 
     if (Stats.ticksCount.counter%SERVER_FPS === 0) {
+        server.event.emit("update", {
+            ticks: Stats.ticksCount,
+            uptime: Stats.uptime.startedAt,
+            avgTickTimes: Stats.tickTimes,
+            messagesSent: Stats.messagesSent,
+            messagesReceived: Stats.messagesReceived,
+            avgTickMessagesSent: Stats.tickMessagesSent,
+            avgTickMessagesReceived: Stats.tickMessagesReceived,
+            bytesSent: Stats.bytesSent,
+            bytesReceived: Stats.bytesReceived,
+            avgTickByteSent: Stats.tickByteSent,
+            avgTickByteReceived: Stats.tickByteReceived,
+            playerCount: players.size,
+            playersJoined: Stats.playersJoined,
+            playersLeft: Stats.playersLeft,
+            bogusAmogusMessages: Stats.bogusAmogusMessages
+        })
         // TODO: serve the stats over a separate websocket, so a separate html page can poll it once in a while
         Stats.print()
     }
