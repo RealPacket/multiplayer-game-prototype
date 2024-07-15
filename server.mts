@@ -1,6 +1,7 @@
-import {WebSocketServer, WebSocket} from 'ws';
+import { WebSocketServer, WebSocket } from 'ws';
 import * as common from './common.mjs'
-import {PlayerMoving, PlayerJoined, PlayerLeft, Player, Event, Hello, Direction} from './common.mjs'
+import { PlayerMoving, PlayerJoined, PlayerLeft, Player, Event, Hello, Direction } from './common.mjs'
+import StatsServer from './stats.mjs';
 
 const SERVER_FPS = 30;
 const SERVER_LIMIT = 69;
@@ -41,7 +42,7 @@ const stats: Stats = {
 };
 
 function average(xs: Array<number>): number {
-    return xs.reduce((a, b) => a + b, 0)/xs.length
+    return xs.reduce((a, b) => a + b, 0) / xs.length
 }
 
 function pushAverage(xs: Array<number>, x: number) {
@@ -53,7 +54,7 @@ function pushAverage(xs: Array<number>, x: number) {
 function printStats() {
     console.log("Stats:")
     console.log("  Ticks count", stats.ticksCount)
-    console.log("  Uptime (secs)", (performance.now() - stats.startedAt)/1000);
+    console.log("  Uptime (secs)", (performance.now() - stats.startedAt) / 1000);
     console.log("  Average time to process a tick", average(stats.tickTimes));
     console.log("  Total messages sent", stats.messagesSent);
     console.log("  Total messages received", stats.messagesReceived);
@@ -80,11 +81,12 @@ let bytesReceivedWithinTick = 0;
 const wss = new WebSocketServer({
     port: common.SERVER_PORT,
 })
+const server = new StatsServer();
 const joinedIds = new Set<number>()
 const leftIds = new Set<number>()
 
 function randomStyle(): string {
-    return `hsl(${Math.floor(Math.random()*360)} 80% 50%)`
+    return `hsl(${Math.floor(Math.random() * 360)} 80% 50%)`
 }
 
 wss.on("connection", (ws) => {
@@ -93,8 +95,8 @@ wss.on("connection", (ws) => {
         return;
     }
     const id = idCounter++;
-    const x = Math.random()*(common.WORLD_WIDTH - common.PLAYER_SIZE);
-    const y = Math.random()*(common.WORLD_HEIGHT - common.PLAYER_SIZE);
+    const x = Math.random() * (common.WORLD_WIDTH - common.PLAYER_SIZE);
+    const y = Math.random() * (common.WORLD_HEIGHT - common.PLAYER_SIZE);
     const style = randomStyle();
     const player = {
         ws,
@@ -123,7 +125,7 @@ wss.on("connection", (ws) => {
         let message;
         try {
             message = JSON.parse(event.data.toString());
-        } catch(e) {
+        } catch (e) {
             stats.bogusAmogusMessages += 1;
             // console.log(`Recieved bogus-amogus message from client ${id} on parsing JSON:`, event.data);
             ws.close();
@@ -273,10 +275,10 @@ function tick() {
 
     // Simulating the world for one server tick.
     // TODO: simulate at actual deltaTime, so to not break the predictions of players.
-    players.forEach((player) => common.updatePlayer(player, 1/SERVER_FPS))
+    players.forEach((player) => common.updatePlayer(player, 1 / SERVER_FPS))
 
     stats.ticksCount += 1;
-    pushAverage(stats.tickTimes, (performance.now() - beginTickTime)/1000);
+    pushAverage(stats.tickTimes, (performance.now() - beginTickTime) / 1000);
     stats.messagesSent += messageSentCounter;
     pushAverage(stats.tickMessagesSent, messageSentCounter);
     pushAverage(stats.tickMessagesReceived, eventQueue.length);
@@ -287,13 +289,30 @@ function tick() {
     eventQueue.length = 0;
     bytesReceivedWithinTick = 0;
 
-    if (stats.ticksCount%SERVER_FPS === 0) {
+    if (stats.ticksCount % SERVER_FPS === 0) {
+        server.event.emit("update", {
+            ticks: stats.ticksCount,
+            uptime: (performance.now() - stats.startedAt) / 1000,
+            avgTickTimes: average(stats.tickTimes),
+            messagesSent: stats.messagesSent,
+            messagesReceived: stats.messagesReceived,
+            avgTickMessagesSent: average(stats.tickMessagesSent),
+            avgTickMessagesReceived: average(stats.tickMessagesReceived),
+            bytesSent: stats.bytesSent,
+            bytesReceived: stats.bytesReceived,
+            avgTickByteSent: average(stats.tickByteSent),
+            avgTickByteReceived: average(stats.tickByteReceived),
+            playerCount: players.size,
+            playersJoined: stats.playersJoined,
+            playersLeft: stats.playersLeft,
+            bogusAmogusMessages: stats.bogusAmogusMessages
+        })
         // TODO: serve the stats over a separate websocket, so a separate html page can poll it once in a while
-        printStats()
+        // printStats()
     }
 
-    setTimeout(tick, 1000/SERVER_FPS);
+    setTimeout(tick, 1000 / SERVER_FPS);
 }
-setTimeout(tick, 1000/SERVER_FPS);
+setTimeout(tick, 1000 / SERVER_FPS);
 
 console.log(`Listening to ws://0.0.0.0:${common.SERVER_PORT}`)
