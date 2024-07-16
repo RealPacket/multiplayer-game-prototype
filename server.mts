@@ -17,6 +17,7 @@ namespace Stats {
         samples: Array<number>;
         description: string;
         pushSample(sample: number): void;
+        average(this: Average): number
     }
 
     export interface Timer {
@@ -29,8 +30,8 @@ namespace Stats {
     type Stats = { [key: string]: Stat }
     const stats: Stats = {}
 
-    function average(samples: Array<number>): number {
-        return samples.reduce((a, b) => a + b, 0) / samples.length
+    function average(this: Average): number {
+        return this.samples.reduce((a, b) => a + b, 0) / this.samples.length
     }
 
     function pluralNumber(num: number, singular: string, plural: string): string {
@@ -55,7 +56,7 @@ namespace Stats {
     function getStat(stat: Stat): string {
         switch (stat.kind) {
             case 'counter': return stat.counter.toString();
-            case 'average': return average(stat.samples).toString();
+            case 'average': return stat.average().toString();
             case 'timer': return displayTimeInterval(Date.now() - stat.startedAt);
         }
     }
@@ -81,6 +82,7 @@ namespace Stats {
             samples: [],
             description,
             pushSample,
+            average
         }
         stats[name] = stat;
         return stat;
