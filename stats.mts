@@ -23,7 +23,9 @@ export default class StatsServer {
             console.log("Headers served, listening for events...");
             this.event.on("update", stats => {
                 console.log("got update", stats);
-                res.write("event: update\n");
+                // this toy protocol can't handle any messages without IDs.
+                // and it breaks if I add the event field after the id field and separate it with a newline.
+                res.write(`id: ${Date.now()}\n`);
                 res.write(`data: ${JSON.stringify(stats)}\n\n`);
             });
         });
