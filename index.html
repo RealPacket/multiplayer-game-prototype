@@ -1,3 +1,4 @@
+<!DOCTYPE HTML>
 <html>
   <head>
     <title>Multiplayer Game Prototype</title>
@@ -73,9 +74,119 @@
           }
       }
     </style>
+    <style>
+      /*
+        This makes the debug details on the same line.
+      */
+      .debug-detail {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+      }
+      .debug-detail > p.debug_v {
+        margin-left: 10px;
+      }
+    </style>
   </head>
   <body>
     <canvas id="game"></canvas>
+    <details open>
+      <summary>Server debug details</summary>
+      <ol>
+        <!-- style="display: flex; flex-direction: row; align-items: center" -->
+        <li class="debug-detail" id="ticks">
+          <img src="assets/images/update.svg" />
+          <p class="debug_k" id="ticks-key">Ticks</p>
+          <!-- style="margin-left: 10px" -->
+          <p class="debug_v" id="ticks-value">0</p>
+        </li>
+        <li class="debug-detail" id="uptime">
+          <img src="assets/images/update.svg" />
+          <p class="debug_k" id="uptime-key">Uptime</p>
+          <!-- style="margin-left: 10px" -->
+          <p class="debug_v" id="uptime-value">69 days</p>
+        </li>
+        <li class="debug-detail" id="bogus-messages">
+          <img src="assets/images/with_errors.svg" />
+          <p class="debug_k" id="bogus-messages-key">Bogus Messages</p>
+          <p class="debug_v" id="bogus-messages-value">69</p>
+        </li>
+        <li class="debug-detail" id="messages-sent">
+          <img src="assets/images/message_sent.svg" />
+          <p class="debug_k" id="messages-sent-key">Messages Sent</p>
+          <p class="debug_v" id="messages-sent-value">420</p>
+        </li>
+        <li class="debug-detail" id="messages-received">
+          <img src="assets/images/message_received.svg" />
+          <p class="debug_k" id="messages-received-key">Messages Received</p>
+          <p class="debug_v" id="messages-received-value">420</p>
+        </li>
+        <li class="debug-detail" id="player-count">
+          <img src="assets/images/players.svg" />
+          <p class="debug_k" id="player-count-key">Player Count</p>
+          <p class="debug_v" id="player-count-value">840</p>
+        </li>
+        <li class="debug-detail" id="players-joined">
+          <img src="assets/images/player_add.svg" />
+          <p class="debug_k" id="players-joined-key">Players Joined</p>
+          <p class="debug_v" id="player-joined-value">10</p>
+        </li>
+        <li class="debug-detail" id="players-left">
+          <img src="assets/images/player_remove.svg" />
+          <p class="debug_k" id="players-left-key">Players Left</p>
+          <p class="debug_v" id="players-left-value">5</p>
+        </li>
+        <!-- TODO: these need icons -->
+        <li class="debug-detail" id="bytes-sent-detail">
+          <!-- <img src="assets/images/template.svg" /> -->
+          <p class="debug_k" id="bytes-sent-key">Bytes Sent</p>
+          <p class="debug_v" id="bytes-sent-value">600 KB (600,000 bytes)</p>
+        </li>
+        <li class="debug-detail" id="bytes-received-detail">
+          <!-- <img src="assets/images/template.svg" /> -->
+          <p class="debug_k" id="bytes-received-key">Bytes Received</p>
+          <p class="debug_v" id="bytes-received-value">400 KB (400,000 bytes)</p>
+        </li>
+        <!--
+        <li class="debug-detail" id="template-detail">
+          <img src="assets/images/template.svg" />
+          <p class="debug_k" id="template-key">Template</p>
+          <p class="debug_v" id="template-value">Template</p>
+        </li>
+        -->
+      </ol>
+      <details open>
+        <summary>Averages</summary>
+        <ol>
+          <!-- TODO: all of these need icons -->
+          <li class="debug-detail" id="average-tick-times-detail">
+            <!-- <img src="assets/images/template.svg" /> -->
+            <p class="debug_k" id="average-tick-times-key">Average Tick Times</p>
+            <p class="debug_v" id="average-tick-times-value">5</p>
+          </li>
+          <li class="debug-detail" id="average-tick-messages-sent-detail">
+            <!-- <img src="assets/images/template.svg" /> -->
+            <p class="debug_k" id="average-tick-messages-sent-key">Average Tick Messages Sent</p>
+            <p class="debug_v" id="average-tick-messages-sent-value">40</p>
+          </li>
+          <li class="debug-detail" id="average-tick-messages-received-detail">
+            <!-- <img src="assets/images/template.svg" /> -->
+            <p class="debug_k" id="average-tick-messages-received-key">Average Tick Messages Received</p>
+            <p class="debug_v" id="average-tick-messages-received-value">40</p>
+          </li>
+          <li class="debug-detail" id="average-bytes-sent-detail">
+            <!-- <img src="assets/images/template.svg" /> -->
+            <p class="debug_k" id="average-bytes-sent-key">Average Bytes Sent</p>
+            <p class="debug_v" id="average-bytes-sent-value">40</p>
+          </li>
+          <li class="debug-detail" id="average-bytes-received-detail">
+            <!-- <img src="assets/images/template.svg" /> -->
+            <p class="debug_k" id="average-bytes-received-key">Average Bytes Received</p>
+            <p class="debug_v" id="average-bytes-received-value">20</p>
+          </li>
+        </ol>
+      </details>
+    </details>
     <script type="module" src="client.mjs"></script>
   </body>
 </html>
