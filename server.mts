@@ -158,7 +158,7 @@ let bytesReceivedWithinTick = 0;
 const wss = new WebSocketServer({
     port: common.SERVER_PORT,
 })
-const server = new StatsServer();
+const server = new StatsServer(common.STATS_PORT);
 const joinedIds = new Set<number>()
 const leftIds = new Set<number>()
 
