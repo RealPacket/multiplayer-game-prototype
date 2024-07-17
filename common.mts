@@ -14,6 +14,25 @@ type Moving = {
     [key in Direction]: boolean
 }
 
+export function pluralNumber(num: number, singular: string, plural: string): string {
+    return num === 1 ? singular : plural;
+}
+
+export function displayTimeInterval(diffMs: number): string {
+    const result = []
+    const diffSecs = Math.floor(diffMs / 1000);
+
+    const days = Math.floor(diffSecs / 60 / 60 / 24)
+    if (days > 0) result.push(`${days} ${pluralNumber(days, 'day', 'days')}`);
+    const hours = Math.floor(diffSecs / 60 / 60 % 24);
+    if (hours > 0) result.push(`${hours} ${pluralNumber(hours, 'hour', 'hours')}`);
+    const mins = Math.floor(diffSecs / 60 % 60);
+    if (mins > 0) result.push(`${mins} ${pluralNumber(mins, 'min', 'mins')}`);
+    const secs = Math.floor(diffSecs % 60);
+    if (secs > 0) result.push(`${secs} ${pluralNumber(secs, 'sec', 'secs')}`);
+    return result.length === 0 ? '0 secs' : result.join(' ');
+}
+
 export type Vector2 = {x: number, y: number};
 export const DIRECTION_VECTORS: {[key in Direction]: Vector2} = {
     'left':  {x: -1, y: 0},
