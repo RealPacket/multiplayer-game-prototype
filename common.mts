@@ -7,6 +7,14 @@ export const WORLD_HEIGHT = 3*WORLD_FACTOR;
 export const PLAYER_SIZE = 30;
 export const PLAYER_SPEED = 500;
 
+export enum MessageKind {
+    HELLO,
+    PLAYER_JOINED,
+    PLAYER_LEFT,
+    PLAYER_MOVED,
+    MOVE_SELF
+}
+
 export type Direction = 'left' | 'right' | 'up' | 'down';
 
 type Moving = {
