@@ -4,7 +4,7 @@ import { EventEmitter } from "events";
 export default class StatsServer {
     server: Server;
     event: EventEmitter;
-    constructor(public port: number = 6971) {
+    constructor(public port: number) {
         this.event = new EventEmitter({
             captureRejections: true
         });
