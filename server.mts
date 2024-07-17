@@ -10,6 +10,7 @@ namespace Stats {
         kind: 'counter',
         counter: number,
         description: string,
+        getStat(this: Stat): string;
     }
 
     export interface Average {
@@ -18,12 +19,14 @@ namespace Stats {
         description: string;
         pushSample(sample: number): void;
         average(this: Average): number
+        getStat(this: Stat): string;
     }
 
     export interface Timer {
         kind: 'timer',
         startedAt: number,
         description: string,
+        getStat(this: Stat): string;
     }
 
     type Stat = Counter | Average | Timer;
@@ -52,12 +55,27 @@ namespace Stats {
         if (secs > 0) result.push(`${secs} ${pluralNumber(secs, 'sec', 'secs')}`);
         return result.length === 0 ? '0 secs' : result.join(' ');
     }
-
-    function getStat(stat: Stat): string {
-        switch (stat.kind) {
-            case 'counter': return stat.counter.toString();
-            case 'average': return stat.average().toString();
-            case 'timer': return displayTimeInterval(Date.now() - stat.startedAt);
+    /*
+        function getStat(stat: Stat): string {
+            switch (stat.kind) {
+                case 'counter': return stat.counter.toString();
+                case 'average': return stat.average().toString();
+                case 'timer': return displayTimeInterval(Date.now() - stat.startedAt);
+            }
+        }
+    */
+    function getStat(this: Stat): string {
+        switch (this.kind) {
+            case 'counter': return this.counter.toString();
+            case 'average': return this.average().toString();
+            case 'timer': return displayTimeInterval(Date.now() - this.startedAt);
+        }
+    }
+    function toString(this: Stat): string {
+        switch (this.kind) {
+            case 'counter': return `${this.description}: ${this.getStat()}`;
+            case 'average': return `${this.description}: ${this.getStat()}`;
+            case 'timer': return `${this.description}: ${this.getStat()}`;
         }
     }
 
@@ -66,6 +84,7 @@ namespace Stats {
             kind: 'counter',
             counter: 0,
             description,
+            getStat,
         }
         stats[name] = stat;
         return stat;
@@ -82,7 +101,8 @@ namespace Stats {
             samples: [],
             description,
             pushSample,
-            average
+            average,
+            getStat,
         }
         stats[name] = stat;
         return stat;
@@ -93,6 +113,7 @@ namespace Stats {
             kind: 'timer',
             startedAt: 0,
             description,
+            getStat,
         }
         stats[name] = stat;
         return stat;
@@ -101,7 +122,7 @@ namespace Stats {
     export function print() {
         console.log("Stats:")
         for (let key in stats) {
-            console.log(`  ${stats[key].description}`, getStat(stats[key]));
+            console.log(`  ${stats[key].description}`, stats[key].getStat());
         }
     }
 
