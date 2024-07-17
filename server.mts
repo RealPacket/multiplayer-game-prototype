@@ -1,6 +1,7 @@
 import {WebSocketServer, WebSocket} from 'ws';
 import * as common from './common.mjs'
-import {Player} from './common.mjs';
+import {Player, Direction} from './common.mjs'
+import StatsServer from './stats.mjs';
 
 namespace Stats {
     const AVERAGE_CAPACITY = 30;
@@ -28,7 +29,7 @@ namespace Stats {
     type Stats = {[key: string]: Stat}
     const stats: Stats = {}
 
-    function average(samples: Array<number>): number {
+    export function average(samples: Array<number>): number {
         return samples.reduce((a, b) => a + b, 0)/samples.length
     }
 
@@ -131,10 +132,11 @@ interface PlayerOnServer extends Player {
 const players = new Map<number, PlayerOnServer>();
 let idCounter = 0;
 let bytesReceivedWithinTick = 0;
+const statsServer = new StatsServer({port: common.SERVER_PORT, path: "/api/stats"});
 let messagesRecievedWithinTick = 0;
 const wss = new WebSocketServer({
-    port: common.SERVER_PORT,
-    path: "/api/game"
+    path: "/api/game",
+    server: statsServer.server
 })
 const joinedIds = new Set<number>()
 const leftIds = new Set<number>()
@@ -328,13 +330,30 @@ function tick() {
     Stats.tickByteSent.pushSample(bytesSentCounter);
     Stats.tickByteReceived.pushSample(bytesReceivedWithinTick);
 
-    joinedIds.clear();
-    leftIds.clear();
-    pingIds.clear();
-    bytesReceivedWithinTick = 0;
-    messagesRecievedWithinTick = 0;
-
     if (Stats.ticksCount.counter%SERVER_FPS === 0) {
+        statsServer.event.emit("update", {
+            ticks: Stats.ticksCount.counter,
+            uptime: Date.now() - Stats.uptime.startedAt,
+            avgTickTimes: Stats.tickTimes,
+            tickTimes: Stats.tickTimes.samples,
+            messagesSent: Stats.messagesSent.counter,
+            messagesReceived: Stats.messagesReceived.counter,
+            avgTickMessagesSent: Stats.average(Stats.tickMessagesSent.samples),
+            tickMessagesSent: Stats.tickMessagesSent.samples,
+            avgTickMessagesReceived: Stats.average(Stats.tickMessagesReceived.samples),
+            tickMessagesReceived: Stats.tickMessagesReceived.samples,
+            bytesSent: Stats.bytesSent.counter,
+            bytesReceived: Stats.bytesReceived.counter,
+            avgTickByteSent: Stats.average(Stats.tickByteSent.samples),
+            tickBytesSent: Stats.tickByteSent.samples,
+            avgTickByteReceived: Stats.average(Stats.tickByteReceived.samples),
+            tickBytesReceived: Stats.tickByteReceived.samples,
+            playerCount: Stats.playersCurrently.counter,
+            playersJoined: Stats.playersJoined.counter,
+            playersLeft: Stats.playersLeft.counter,
+            playersRejected: Stats.playersRejected.counter,
+            bogusAmogusMessages: Stats.bogusAmogusMessages.counter,
+        })
         // TODO: serve the stats over a separate websocket, so a separate html page can poll it once in a while
         Stats.print()
     }
@@ -344,4 +363,4 @@ function tick() {
 Stats.uptime.startedAt = Date.now()
 setTimeout(tick, 1000/SERVER_FPS);
 
-console.log(`Listening to ws://0.0.0.0:${common.SERVER_PORT}/game and http://0.0.0.0:${common.SERVER_PORT}/stats (SSE).`)
+console.log(`Listening to ws://0.0.0.0:${common.SERVER_PORT}/api/game and http://0.0.0.0:${common.SERVER_PORT}/api/stats (SSE).`)
