@@ -1,6 +1,6 @@
-import {WebSocketServer, WebSocket} from 'ws';
+import { WebSocketServer, WebSocket } from 'ws';
 import * as common from './common.mjs'
-import {PlayerMoving, PlayerJoined, PlayerLeft, Player, Event, Hello, Direction} from './common.mjs'
+import { PlayerMoving, PlayerJoined, PlayerLeft, Player, Event, Hello, Direction } from './common.mjs'
 
 namespace Stats {
     const AVERAGE_CAPACITY = 30;
@@ -25,11 +25,11 @@ namespace Stats {
     }
 
     type Stat = Counter | Average | Timer;
-    type Stats = {[key: string]: Stat}
+    type Stats = { [key: string]: Stat }
     const stats: Stats = {}
 
     function average(samples: Array<number>): number {
-        return samples.reduce((a, b) => a + b, 0)/samples.length
+        return samples.reduce((a, b) => a + b, 0) / samples.length
     }
 
     function pluralNumber(num: number, singular: string, plural: string): string {
@@ -38,15 +38,15 @@ namespace Stats {
 
     function displayTimeInterval(diffMs: number): string {
         const result = []
-        const diffSecs = Math.floor(diffMs/1000);
+        const diffSecs = Math.floor(diffMs / 1000);
 
-        const days = Math.floor(diffSecs/60/60/24)
+        const days = Math.floor(diffSecs / 60 / 60 / 24)
         if (days > 0) result.push(`${days} ${pluralNumber(days, 'day', 'days')}`);
-        const hours = Math.floor(diffSecs/60/60%24);
+        const hours = Math.floor(diffSecs / 60 / 60 % 24);
         if (hours > 0) result.push(`${hours} ${pluralNumber(hours, 'hour', 'hours')}`);
-        const mins = Math.floor(diffSecs/60%60);
+        const mins = Math.floor(diffSecs / 60 % 60);
         if (mins > 0) result.push(`${mins} ${pluralNumber(mins, 'min', 'mins')}`);
-        const secs = Math.floor(diffSecs%60);
+        const secs = Math.floor(diffSecs % 60);
         if (secs > 0) result.push(`${secs} ${pluralNumber(secs, 'sec', 'secs')}`);
         return result.length === 0 ? '0 secs' : result.join(' ');
     }
@@ -55,7 +55,7 @@ namespace Stats {
         switch (stat.kind) {
             case 'counter': return stat.counter.toString();
             case 'average': return average(stat.samples).toString();
-            case 'timer':   return displayTimeInterval(Date.now() - stat.startedAt);
+            case 'timer': return displayTimeInterval(Date.now() - stat.startedAt);
         }
     }
 
@@ -102,22 +102,22 @@ namespace Stats {
         }
     }
 
-    export const uptime               = registerTimer  ("uptime",               "Uptime");
-    export const ticksCount           = registerCounter("ticksCount",           "Ticks count");
-    export const tickTimes            = registerAverage("tickTimes",            "Average time to process a tick");
-    export const messagesSent         = registerCounter("messagesSent",         "Total messages sent");
-    export const messagesReceived     = registerCounter("messagesReceived",     "Total messages received");
-    export const tickMessagesSent     = registerAverage("tickMessagesSent",     "Average messages sent per tick");
+    export const uptime = registerTimer("uptime", "Uptime");
+    export const ticksCount = registerCounter("ticksCount", "Ticks count");
+    export const tickTimes = registerAverage("tickTimes", "Average time to process a tick");
+    export const messagesSent = registerCounter("messagesSent", "Total messages sent");
+    export const messagesReceived = registerCounter("messagesReceived", "Total messages received");
+    export const tickMessagesSent = registerAverage("tickMessagesSent", "Average messages sent per tick");
     export const tickMessagesReceived = registerAverage("tickMessagesReceived", "Average messages received per tick");
-    export const bytesSent            = registerCounter("bytesSent",            "Total bytes sent");
-    export const bytesReceived        = registerCounter("bytesReceived",        "Total bytes received");
-    export const tickByteSent         = registerAverage("tickByteSent",         "Average bytes sent per tick");
-    export const tickByteReceived     = registerAverage("tickByteReceived",     "Average bytes received per tick");
-    export const playersCurrently     = registerCounter("playersCurrently",     "Currently players");
-    export const playersJoined        = registerCounter("playersJoined",        "Total players joined");
-    export const playersLeft          = registerCounter("playersLeft",          "Total players left");
-    export const bogusAmogusMessages  = registerCounter("bogusAmogusMessages",  "Total bogus-amogus messages");
-    export const playersRejected      = registerCounter("playersRejected",      "Total players rejected");
+    export const bytesSent = registerCounter("bytesSent", "Total bytes sent");
+    export const bytesReceived = registerCounter("bytesReceived", "Total bytes received");
+    export const tickByteSent = registerAverage("tickByteSent", "Average bytes sent per tick");
+    export const tickByteReceived = registerAverage("tickByteReceived", "Average bytes received per tick");
+    export const playersCurrently = registerCounter("playersCurrently", "Currently players");
+    export const playersJoined = registerCounter("playersJoined", "Total players joined");
+    export const playersLeft = registerCounter("playersLeft", "Total players left");
+    export const bogusAmogusMessages = registerCounter("bogusAmogusMessages", "Total bogus-amogus messages");
+    export const playersRejected = registerCounter("playersRejected", "Total players rejected");
 }
 
 const SERVER_FPS = 60;
@@ -144,9 +144,9 @@ wss.on("connection", (ws) => {
         return;
     }
     const id = idCounter++;
-    const x = Math.random()*(common.WORLD_WIDTH - common.PLAYER_SIZE);
-    const y = Math.random()*(common.WORLD_HEIGHT - common.PLAYER_SIZE);
-    const hue = Math.floor(Math.random()*360);
+    const x = Math.random() * (common.WORLD_WIDTH - common.PLAYER_SIZE);
+    const y = Math.random() * (common.WORLD_HEIGHT - common.PLAYER_SIZE);
+    const hue = Math.floor(Math.random() * 360);
     const player = {
         ws,
         id,
@@ -163,7 +163,7 @@ wss.on("connection", (ws) => {
     players.set(id, player);
     // console.log(`Player ${id} connected`);
     eventQueue.push({
-        kind: 'PlayerJoined',
+        kind: common.MessageKind.PLAYER_JOINED,
         id, x, y, hue
     })
     Stats.playersJoined.counter += 1;
@@ -175,7 +175,7 @@ wss.on("connection", (ws) => {
         let message;
         try {
             message = JSON.parse(event.data.toString());
-        } catch(e) {
+        } catch (e) {
             Stats.bogusAmogusMessages.counter += 1;
             // console.log(`Recieved bogus-amogus message from client ${id} on parsing JSON:`, event.data);
             ws.close();
@@ -184,7 +184,7 @@ wss.on("connection", (ws) => {
         if (common.isAmmaMoving(message)) {
             // console.log(`Received message from player ${id}`, message)
             eventQueue.push({
-                kind: 'PlayerMoving',
+                kind: common.MessageKind.PLAYER_MOVING,
                 id,
                 x: player.x,
                 y: player.y,
@@ -204,7 +204,7 @@ wss.on("connection", (ws) => {
         Stats.playersLeft.counter += 1;
         Stats.playersCurrently.counter -= 1;
         eventQueue.push({
-            kind: 'PlayerLeft',
+            kind: common.MessageKind.PLAYER_LEFT,
             id
         })
     })
@@ -213,7 +213,7 @@ wss.on("connection", (ws) => {
 let previousTimestamp = performance.now();
 function tick() {
     const timestamp = performance.now();
-    const deltaTime = (timestamp - previousTimestamp)/1000
+    const deltaTime = (timestamp - previousTimestamp) / 1000
     previousTimestamp = timestamp;
     let messageSentCounter = 0;
     let bytesSentCounter = 0;
@@ -224,10 +224,10 @@ function tick() {
     // This makes sure that if somebody joined and left within a single tick they are never handled
     for (const event of eventQueue) {
         switch (event.kind) {
-            case 'PlayerJoined': {
+            case common.MessageKind.PLAYER_JOINED: {
                 joinedIds.add(event.id);
             } break;
-            case 'PlayerLeft': {
+            case common.MessageKind.PLAYER_LEFT: {
                 if (!joinedIds.delete(event.id)) {
                     leftIds.add(event.id);
                 }
@@ -241,7 +241,7 @@ function tick() {
         if (joinedPlayer !== undefined) { // This should never happen, but we handling none existing ids for more robustness
             // The greetings
             bytesSentCounter += common.sendMessage<Hello>(joinedPlayer.ws, {
-                kind: 'Hello',
+                kind: common.MessageKind.HELLO,
                 id: joinedPlayer.id,
                 x: joinedPlayer.x,
                 y: joinedPlayer.y,
@@ -252,7 +252,7 @@ function tick() {
             players.forEach((otherPlayer) => {
                 if (joinedId !== otherPlayer.id) { // Joined player should already know about themselves
                     bytesSentCounter += common.sendMessage<PlayerJoined>(joinedPlayer.ws, {
-                        kind: 'PlayerJoined',
+                        kind: common.MessageKind.PLAYER_JOINED,
                         id: otherPlayer.id,
                         x: otherPlayer.x,
                         y: otherPlayer.y,
@@ -263,7 +263,7 @@ function tick() {
                     for (direction in otherPlayer.moving) {
                         if (otherPlayer.moving[direction]) {
                             bytesSentCounter += common.sendMessage<PlayerMoving>(joinedPlayer.ws, {
-                                kind: 'PlayerMoving',
+                                kind: common.MessageKind.PLAYER_MOVING,
                                 id: otherPlayer.id,
                                 x: otherPlayer.x,
                                 y: otherPlayer.y,
@@ -285,7 +285,7 @@ function tick() {
             players.forEach((otherPlayer) => {
                 if (joinedId !== otherPlayer.id) { // Joined player should already know about themselves
                     bytesSentCounter += common.sendMessage<PlayerJoined>(otherPlayer.ws, {
-                        kind: 'PlayerJoined',
+                        kind: common.MessageKind.PLAYER_JOINED,
                         id: joinedPlayer.id,
                         x: joinedPlayer.x,
                         y: joinedPlayer.y,
@@ -301,7 +301,7 @@ function tick() {
     leftIds.forEach((leftId) => {
         players.forEach((player) => {
             bytesSentCounter += common.sendMessage<PlayerLeft>(player.ws, {
-                kind: 'PlayerLeft',
+                kind: common.MessageKind.PLAYER_LEFT,
                 id: leftId,
             });
             messageSentCounter += 1
@@ -311,7 +311,7 @@ function tick() {
     // Notifying about the movements
     for (let event of eventQueue) {
         switch (event.kind) {
-            case 'PlayerMoving': {
+            case common.MessageKind.PLAYER_MOVING: {
                 const player = players.get(event.id);
                 if (player !== undefined) { // This MAY happen if somebody joined, moved and left within a single tick. Just skipping.
                     player.moving[event.direction] = event.start;
@@ -332,7 +332,7 @@ function tick() {
 
     const tickTime = performance.now() - timestamp;
     Stats.ticksCount.counter += 1;
-    Stats.tickTimes.pushSample(tickTime/1000);
+    Stats.tickTimes.pushSample(tickTime / 1000);
     Stats.messagesSent.counter += messageSentCounter;
     Stats.tickMessagesSent.pushSample(messageSentCounter);
     Stats.tickMessagesReceived.pushSample(eventQueue.length);
@@ -343,14 +343,14 @@ function tick() {
     eventQueue.length = 0;
     bytesReceivedWithinTick = 0;
 
-    if (Stats.ticksCount.counter%SERVER_FPS === 0) {
+    if (Stats.ticksCount.counter % SERVER_FPS === 0) {
         // TODO: serve the stats over a separate websocket, so a separate html page can poll it once in a while
         Stats.print()
     }
 
-    setTimeout(tick, Math.max(0, 1000/SERVER_FPS - tickTime));
+    setTimeout(tick, Math.max(0, 1000 / SERVER_FPS - tickTime));
 }
 Stats.uptime.startedAt = Date.now()
-setTimeout(tick, 1000/SERVER_FPS);
+setTimeout(tick, 1000 / SERVER_FPS);
 
 console.log(`Listening to ws://0.0.0.0:${common.SERVER_PORT}`)

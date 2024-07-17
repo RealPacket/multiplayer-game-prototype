@@ -11,7 +11,7 @@ export enum MessageKind {
     HELLO,
     PLAYER_JOINED,
     PLAYER_LEFT,
-    PLAYER_MOVED,
+    PLAYER_MOVING,
     MOVE_SELF
 }
 
@@ -54,7 +54,7 @@ export function isBoolean(arg: any): arg is boolean {
 }
 
 export interface Hello {
-    kind: "Hello",
+    kind: MessageKind.HELLO,
     id: number,
     x: number,
     y: number,
@@ -63,12 +63,12 @@ export interface Hello {
 
 export function isHello(arg: any): arg is Hello {
     return arg
-        && arg.kind === 'Hello'
+        && arg.kind === MessageKind.HELLO
         && isNumber(arg.id);
 }
 
 export interface PlayerJoined {
-    kind: 'PlayerJoined',
+    kind: MessageKind.PLAYER_JOINED,
     id: number,
     x: number,
     y: number,
@@ -77,7 +77,7 @@ export interface PlayerJoined {
 
 export function isPlayerJoined(arg: any): arg is PlayerJoined {
     return arg
-        && arg.kind === 'PlayerJoined'
+        && arg.kind === MessageKind.PLAYER_JOINED
         && isNumber(arg.id)
         && isNumber(arg.x)
         && isNumber(arg.y)
@@ -85,31 +85,31 @@ export function isPlayerJoined(arg: any): arg is PlayerJoined {
 }
 
 export interface PlayerLeft {
-    kind: 'PlayerLeft',
+    kind: MessageKind.PLAYER_LEFT,
     id: number,
 }
 
 export function isPlayerLeft(arg: any): arg is PlayerLeft {
     return arg
-        && arg.kind === 'PlayerLeft'
+        && arg.kind ===  MessageKind.PLAYER_LEFT
         && isNumber(arg.id)
 }
 
 export interface AmmaMoving {
-    kind: 'AmmaMoving',
+    kind:  MessageKind.MOVE_SELF,
     start: boolean,
     direction: Direction,
 }
 
 export function isAmmaMoving(arg: any): arg is AmmaMoving {
     return arg
-        && arg.kind === 'AmmaMoving'
+        && arg.kind ===  MessageKind.MOVE_SELF
         && isBoolean(arg.start)
         && isDirection(arg.direction);
 }
 
 export interface PlayerMoving {
-    kind: 'PlayerMoving',
+    kind:  MessageKind.PLAYER_MOVING,
     id: number,
     x: number,
     y: number,
@@ -119,7 +119,7 @@ export interface PlayerMoving {
 
 export function isPlayerMoving(arg: any): arg is PlayerMoving {
     return arg
-        && arg.kind === 'PlayerMoving'
+        && arg.kind ===  MessageKind.PLAYER_MOVING
         && isNumber(arg.id)
         && isNumber(arg.x)
         && isNumber(arg.y)
@@ -153,7 +153,7 @@ export function updatePlayer(player: Player, deltaTime: number) {
 }
 
 interface Message {
-    kind: string,
+    kind: MessageKind,
 }
 
 export function sendMessage<T extends Message>(socket: ws.WebSocket | WebSocket, message: T): number {

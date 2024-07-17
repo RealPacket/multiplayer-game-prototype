@@ -1,15 +1,15 @@
 import * as common from './common.mjs'
-import type {Player, Direction, AmmaMoving} from './common.mjs';
+import type { Player, Direction, AmmaMoving } from './common.mjs';
 
-const DIRECTION_KEYS: {[key: string]: Direction} = {
-    'ArrowLeft'  : 'left',
-    'ArrowRight' : 'right',
-    'ArrowUp'    : 'up',
-    'ArrowDown'  : 'down',
-    'KeyA'       : 'left',
-    'KeyD'       : 'right',
-    'KeyS'       : 'down',
-    'KeyW'       : 'up',
+const DIRECTION_KEYS: { [key: string]: Direction } = {
+    'ArrowLeft': 'left',
+    'ArrowRight': 'right',
+    'ArrowUp': 'up',
+    'ArrowDown': 'down',
+    'KeyA': 'left',
+    'KeyD': 'right',
+    'KeyS': 'down',
+    'KeyW': 'up',
 };
 
 (async () => {
@@ -93,7 +93,7 @@ const DIRECTION_KEYS: {[key: string]: Direction} = {
 
     let previousTimestamp = 0;
     const frame = (timestamp: number) => {
-        const deltaTime = (timestamp - previousTimestamp)/1000;
+        const deltaTime = (timestamp - previousTimestamp) / 1000;
         previousTimestamp = timestamp;
 
         ctx.fillStyle = '#202020';
@@ -104,7 +104,7 @@ const DIRECTION_KEYS: {[key: string]: Direction} = {
             const size = ctx.measureText(label);
             ctx.font = "48px bold";
             ctx.fillStyle = 'white';
-            ctx.fillText(label, ctx.canvas.width/2 - size.width/2, ctx.canvas.height/2);
+            ctx.fillText(label, ctx.canvas.width / 2 - size.width / 2, ctx.canvas.height / 2);
         } else {
             players.forEach((player) => {
                 if (me !== undefined && me.id !== player.id) {
@@ -139,7 +139,7 @@ const DIRECTION_KEYS: {[key: string]: Direction} = {
                 const direction = DIRECTION_KEYS[e.code];
                 if (direction !== undefined) {
                     common.sendMessage<AmmaMoving>(ws, {
-                        kind: 'AmmaMoving',
+                        kind: common.MessageKind.MOVE_SELF,
                         start: true,
                         direction
                     })
@@ -153,7 +153,7 @@ const DIRECTION_KEYS: {[key: string]: Direction} = {
                 const direction = DIRECTION_KEYS[e.code];
                 if (direction !== undefined) {
                     common.sendMessage<AmmaMoving>(ws, {
-                        kind: 'AmmaMoving',
+                        kind: common.MessageKind.MOVE_SELF,
                         start: false,
                         direction
                     });

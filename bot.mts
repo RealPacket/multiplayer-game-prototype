@@ -1,6 +1,6 @@
-import {WebSocket} from 'ws';
+import { WebSocket } from 'ws';
 import * as common from './common.mjs';
-import type {Player, AmmaMoving, Direction} from './common.mjs'
+import type { Player, AmmaMoving, Direction } from './common.mjs'
 
 const BOT_FPS = 60;
 
@@ -16,8 +16,8 @@ function createBot(): Bot {
     const bot: Bot = {
         ws: new WebSocket(`ws://localhost:${common.SERVER_PORT}/`),
         me: undefined,
-        goalX: common.WORLD_WIDTH*0.5,
-        goalY: common.WORLD_HEIGHT*0.5,
+        goalX: common.WORLD_WIDTH * 0.5,
+        goalY: common.WORLD_HEIGHT * 0.5,
         timeoutBeforeTurn: undefined,
     };
 
@@ -38,7 +38,7 @@ function createBot(): Bot {
                     hue: message.hue,
                 };
                 turn();
-                setTimeout(tick, 1000/BOT_FPS);
+                setTimeout(tick, 1000 / BOT_FPS);
                 console.log(`Connected as player ${bot.me.id}`);
             } else {
                 console.log("Received bogus-amogus message from server", message)
@@ -64,7 +64,7 @@ function createBot(): Bot {
                 if (bot.me.moving[direction]) {
                     bot.me.moving[direction] = false;
                     common.sendMessage<AmmaMoving>(bot.ws, {
-                        kind: 'AmmaMoving',
+                        kind: common.MessageKind.MOVE_SELF,
                         start: false,
                         direction
                     })
@@ -73,11 +73,11 @@ function createBot(): Bot {
 
             // New direction
             const directions = Object.keys(bot.me.moving) as Direction[];
-            direction = directions[Math.floor(Math.random()*directions.length)];
-            bot.timeoutBeforeTurn = Math.random()*common.WORLD_WIDTH*0.5/common.PLAYER_SPEED;
+            direction = directions[Math.floor(Math.random() * directions.length)];
+            bot.timeoutBeforeTurn = Math.random() * common.WORLD_WIDTH * 0.5 / common.PLAYER_SPEED;
             bot.me.moving[direction] = true;
             common.sendMessage<AmmaMoving>(bot.ws, {
-                kind: 'AmmaMoving',
+                kind: common.MessageKind.MOVE_SELF,
                 start: true,
                 direction
             })
@@ -87,7 +87,7 @@ function createBot(): Bot {
     let previousTimestamp = 0;
     function tick() {
         const timestamp = performance.now();
-        const deltaTime = (timestamp - previousTimestamp)/1000;
+        const deltaTime = (timestamp - previousTimestamp) / 1000;
         previousTimestamp = timestamp;
         if (bot.timeoutBeforeTurn !== undefined) {
             bot.timeoutBeforeTurn -= deltaTime;
@@ -96,7 +96,7 @@ function createBot(): Bot {
         if (bot.me !== undefined) {
             common.updatePlayer(bot.me, deltaTime)
         }
-        setTimeout(tick, Math.max(0, 1000/BOT_FPS - timestamp));
+        setTimeout(tick, Math.max(0, 1000 / BOT_FPS - timestamp));
     }
 
     return bot
