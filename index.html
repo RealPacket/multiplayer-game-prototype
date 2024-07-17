@@ -1,3 +1,4 @@
+<!DOCTYPE HTML>
 <html>
   <head>
     <title>Multiplayer Game Prototype</title>
@@ -89,39 +90,8 @@
   </head>
   <body>
     <canvas id="game"></canvas>
-    <!-- #region a -->
-    <!--#endregion -->
     <details open>
       <summary>Debug details</summary>
-      <!-- {
-                  avgTickTimes: average(stats.tickTimes),
-                  avgTickMessagesSent: average(stats.tickMessagesSent),
-                  avgTickMessagesReceived: average(stats.tickMessagesReceived),
-                  avgTickByteSent: average(stats.tickByteSent),
-                  avgTickByteReceived: average(stats.tickByteReceived),
-                  // all below are added into the list
-      -->
-                  <!--#region averages
-                  avgTickTimes: average(stats.tickTimes),
-                  avgTickMessagesSent: average(stats.tickMessagesSent),
-                  avgTickMessagesReceived: average(stats.tickMessagesReceived),
-                  avgTickByteSent: average(stats.tickByteSent),
-                  avgTickByteReceived: average(stats.tickByteReceived),
-                  -->
-                  <!-- #endregion -->
-                  <!--#region normal
-                  bytesSent: stats.bytesSent,
-                  bytesReceived: stats.bytesReceived,
-                  playersLeft: stats.playersLeft,
-                  ticks: stats.ticksCount,
-                  uptime: (performance.now() - stats.startedAt) / 1000,
-                  bogusAmogusMessages: stats.bogusAmogusMessages
-                  messagesSent: stats.messagesSent,
-                  messagesReceived: stats.messagesReceived,
-                  playerCount: players.size,
-                  playersJoined: stats.playersJoined
-              } -->
-                  <!-- #endregion -->
       <ol>
         <!-- style="display: flex; flex-direction: row; align-items: center" -->
         <li class="debug-detail" id="ticks">
@@ -166,6 +136,7 @@
           <p class="debug_k" id="players-left-key">Players Left</p>
           <p class="debug_v" id="players-left-value">5</p>
         </li>
+        <!-- TODO: these need icons -->
         <li class="debug-detail" id="bytes-sent-detail">
           <!-- <img src="assets/images/template.svg" /> -->
           <p class="debug_k" id="bytes-sent-key">Bytes Sent</p>
@@ -176,7 +147,6 @@
           <p class="debug_k" id="bytes-received-key">Bytes Received</p>
           <p class="debug_v" id="bytes-received-value">400 KB (400,000 bytes)</p>
         </li>
-        <!-- TODO: add details here -->
         <!--
         <li class="debug-detail" id="template-detail">
           <img src="assets/images/template.svg" />
@@ -188,6 +158,7 @@
       <details open>
         <summary>Averages</summary>
         <ol>
+          <!-- TODO: all of these need icons -->
           <li class="debug-detail" id="average-tick-times-detail">
             <!-- <img src="assets/images/template.svg" /> -->
             <p class="debug_k" id="template-key">Average Tick Times</p>
