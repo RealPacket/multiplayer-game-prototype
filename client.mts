@@ -1,15 +1,16 @@
 import * as common from './common.mjs'
-import type {Player, Direction, AmmaMoving} from './common.mjs';
+import type { Player, Direction, AmmaMoving } from './common.mjs';
+import type { StatData } from "./stats.mjs";
 
-const DIRECTION_KEYS: {[key: string]: Direction} = {
-    'ArrowLeft'  : 'left',
-    'ArrowRight' : 'right',
-    'ArrowUp'    : 'up',
-    'ArrowDown'  : 'down',
-    'KeyA'       : 'left',
-    'KeyD'       : 'right',
-    'KeyS'       : 'down',
-    'KeyW'       : 'up',
+const DIRECTION_KEYS: { [key: string]: Direction } = {
+    'ArrowLeft': 'left',
+    'ArrowRight': 'right',
+    'ArrowUp': 'up',
+    'ArrowDown': 'down',
+    'KeyA': 'left',
+    'KeyD': 'right',
+    'KeyS': 'down',
+    'KeyW': 'up',
 };
 
 (async () => {
@@ -21,6 +22,10 @@ const DIRECTION_KEYS: {[key: string]: Direction} = {
     if (ctx === null) throw new Error('2d canvas is not supported');
 
     const ws = new WebSocket(`ws://${window.location.hostname}:${common.SERVER_PORT}`);
+    const stats = new EventSource(`http://${window.location.hostname}:${common.STATS_PORT}/`);
+    stats.addEventListener("open", _ => {
+        console.info("[STATS] Stats Event Source open.");
+    })
     let me: Player | undefined = undefined;
     const players = new Map<number, Player>();
     ws.addEventListener("close", (event) => {
@@ -86,13 +91,41 @@ const DIRECTION_KEYS: {[key: string]: Direction} = {
             }
         }
     });
+    stats.addEventListener("message", (e: MessageEvent<string>) => {
+        const data: StatData = JSON.parse(e.data);
+        const uptime = common.displayTimeInterval(data.uptime);
+        /**
+         * stats value query selectors:
+         * #messages-sent-value
+         * #messages-received-value
+         * #player-count-value
+         * #player-joined-value
+         * #players-left-value
+         * #bytes-received-value
+         * #bytes-sent-value
+         */
+        document.querySelector("#ticks-value")!.textContent = data.ticks.toLocaleString();
+        document.querySelector("#uptime-value")!.textContent = uptime;
+        document.querySelector("#messages-sent-value")!.textContent = data.messagesSent.toLocaleString();
+        document.querySelector("#messages-received-value")!.textContent = data.messagesReceived.toLocaleString();
+        document.querySelector("#player-count-value")!.textContent = data.playerCount.toLocaleString();
+        document.querySelector("#player-joined-value")!.textContent = data.playersJoined.toLocaleString();
+        document.querySelector("#players-left-value")!.textContent = data.playersLeft.toLocaleString();
+        document.querySelector("#bytes-received-value")!.textContent = data.bytesReceived.toLocaleString();
+        document.querySelector("#bytes-sent-value")!.textContent = data.bytesSent.toLocaleString();
+        document.querySelector("#bogus-messages-value")!.textContent = data.bogusAmogusMessages.toLocaleString();
+        document.querySelector("#average-bytes-received-value")!.textContent = data.bytesReceived.toLocaleString();
+        document.querySelector("#average-bytes-sent-value")!.textContent = data.bytesSent.toLocaleString();
+        document.querySelector("#average-tick-messages-sent-value")!.textContent = data.messagesSent.toLocaleString();
+        document.querySelector("#average-tick-messages-received-value")!.textContent = data.messagesReceived.toLocaleString();
+    })
     ws.addEventListener("open", (event) => {
         console.log("WEBSOCKET OPEN", event)
     });
 
     let previousTimestamp = 0;
     const frame = (timestamp: number) => {
-        const deltaTime = (timestamp - previousTimestamp)/1000;
+        const deltaTime = (timestamp - previousTimestamp) / 1000;
         previousTimestamp = timestamp;
 
         ctx.fillStyle = '#202020';
