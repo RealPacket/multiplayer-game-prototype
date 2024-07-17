@@ -20,7 +20,7 @@ const DIRECTION_KEYS: {[key: string]: common.Direction} = {
     const ctx = gameCanvas.getContext("2d");
     if (ctx === null) throw new Error('2d canvas is not supported');
 
-    let ws: WebSocket | undefined = new WebSocket(`ws://${window.location.hostname}:${common.SERVER_PORT}`);
+    let ws: WebSocket | undefined = new WebSocket(`ws://${window.location.hostname}:${common.SERVER_PORT}/api/game`);
     let me: Player | undefined = undefined;
     const players = new Map<number, Player>();
     let ping = 0;

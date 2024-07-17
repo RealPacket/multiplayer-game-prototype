@@ -134,6 +134,7 @@ let bytesReceivedWithinTick = 0;
 let messagesRecievedWithinTick = 0;
 const wss = new WebSocketServer({
     port: common.SERVER_PORT,
+    path: "/api/game"
 })
 const joinedIds = new Set<number>()
 const leftIds = new Set<number>()
@@ -343,4 +344,4 @@ function tick() {
 Stats.uptime.startedAt = Date.now()
 setTimeout(tick, 1000/SERVER_FPS);
 
-console.log(`Listening to ws://0.0.0.0:${common.SERVER_PORT}`)
+console.log(`Listening to ws://0.0.0.0:${common.SERVER_PORT}/game and http://0.0.0.0:${common.SERVER_PORT}/stats (SSE).`)
