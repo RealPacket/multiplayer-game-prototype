@@ -1,36 +1,11 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import * as common from './common.mjs'
 import { PlayerMoving, PlayerJoined, PlayerLeft, Player, Event, Hello, Direction } from './common.mjs'
-import StatsServer from './stats.mjs';
+import StatsServer, { Average, Counter, Stat, Stats, Timer } from './stats.mjs';
 
 namespace Stats {
     const AVERAGE_CAPACITY = 30;
 
-    export interface Counter {
-        kind: 'counter',
-        counter: number,
-        description: string,
-        getStat(this: Stat): string;
-    }
-
-    export interface Average {
-        kind: 'average';
-        samples: Array<number>;
-        description: string;
-        pushSample(sample: number): void;
-        average(this: Average): number
-        getStat(this: Stat): string;
-    }
-
-    export interface Timer {
-        kind: 'timer',
-        startedAt: number,
-        description: string,
-        getStat(this: Stat): string;
-    }
-
-    type Stat = Counter | Average | Timer;
-    type Stats = { [key: string]: Stat }
     const stats: Stats = {}
 
     function average(this: Average): number {
@@ -370,21 +345,27 @@ function tick() {
 
     if (Stats.ticksCount.counter % SERVER_FPS === 0) {
         server.event.emit("update", {
-            ticks: Stats.ticksCount,
-            uptime: Stats.uptime.startedAt,
-            avgTickTimes: Stats.tickTimes,
-            messagesSent: Stats.messagesSent,
-            messagesReceived: Stats.messagesReceived,
-            avgTickMessagesSent: Stats.tickMessagesSent,
-            avgTickMessagesReceived: Stats.tickMessagesReceived,
-            bytesSent: Stats.bytesSent,
-            bytesReceived: Stats.bytesReceived,
-            avgTickByteSent: Stats.tickByteSent,
-            avgTickByteReceived: Stats.tickByteReceived,
-            playerCount: players.size,
-            playersJoined: Stats.playersJoined,
-            playersLeft: Stats.playersLeft,
-            bogusAmogusMessages: Stats.bogusAmogusMessages
+            ticks: Stats.ticksCount.counter,
+            uptime: Date.now() - Stats.uptime.startedAt,
+            avgTickTimes: Stats.tickTimes.average(),
+            tickTimes: Stats.tickTimes.samples,
+            messagesSent: Stats.messagesSent.counter,
+            messagesReceived: Stats.messagesReceived.counter,
+            avgTickMessagesSent: Stats.tickMessagesSent.average(),
+            tickMessagesSent: Stats.tickMessagesSent.samples,
+            avgTickMessagesReceived: Stats.tickMessagesReceived.average(),
+            tickMessagesReceived: Stats.tickMessagesReceived.samples,
+            bytesSent: Stats.bytesSent.counter,
+            bytesReceived: Stats.bytesReceived.counter,
+            avgTickByteSent: Stats.tickByteSent.average(),
+            tickBytesSent: Stats.tickByteSent.samples,
+            avgTickByteReceived: Stats.tickByteReceived.average(),
+            tickBytesReceived: Stats.tickByteReceived.samples,
+            playerCount: Stats.playersCurrently.counter,
+            playersJoined: Stats.playersJoined.counter,
+            playersLeft: Stats.playersLeft.counter,
+            playersRejected: Stats.playersRejected.counter,
+            bogusAmogusMessages: Stats.bogusAmogusMessages.counter,
         })
         // TODO: serve the stats over a separate websocket, so a separate html page can poll it once in a while
         Stats.print()
