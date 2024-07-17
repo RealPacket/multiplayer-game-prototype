@@ -1,6 +1,7 @@
 import type * as ws from 'ws';
 
 export const SERVER_PORT = 6970;
+export const STATS_PORT = 6971;
 export const WORLD_FACTOR = 200;
 export const WORLD_WIDTH = 4*WORLD_FACTOR;
 export const WORLD_HEIGHT = 3*WORLD_FACTOR;
