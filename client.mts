@@ -1,15 +1,15 @@
 import * as common from './common.mjs'
-import type {Player, Direction, AmmaMoving} from './common.mjs';
+import type {Player} from './common.mjs';
 
-const DIRECTION_KEYS: {[key: string]: Direction} = {
-    'ArrowLeft'  : 'left',
-    'ArrowRight' : 'right',
-    'ArrowUp'    : 'up',
-    'ArrowDown'  : 'down',
-    'KeyA'       : 'left',
-    'KeyD'       : 'right',
-    'KeyS'       : 'down',
-    'KeyW'       : 'up',
+const DIRECTION_KEYS: {[key: string]: common.Direction} = {
+    'ArrowLeft'  : common.Direction.Left,
+    'ArrowRight' : common.Direction.Right,
+    'ArrowUp'    : common.Direction.Up,
+    'ArrowDown'  : common.Direction.Down,
+    'KeyA'       : common.Direction.Left,
+    'KeyD'       : common.Direction.Right,
+    'KeyS'       : common.Direction.Down,
+    'KeyW'       : common.Direction.Up,
 };
 
 (async () => {
@@ -23,6 +23,8 @@ const DIRECTION_KEYS: {[key: string]: Direction} = {
     let ws: WebSocket | undefined = new WebSocket(`ws://${window.location.hostname}:${common.SERVER_PORT}`);
     let me: Player | undefined = undefined;
     const players = new Map<number, Player>();
+    let ping = 0;
+    ws.binaryType = 'arraybuffer';
     ws.addEventListener("close", (event) => {
         console.log("WEBSOCKET CLOSE", event)
         ws = undefined
@@ -32,57 +34,54 @@ const DIRECTION_KEYS: {[key: string]: Direction} = {
         console.log("WEBSOCKET ERROR", event)
     });
     ws.addEventListener("message", (event) => {
+        // console.log('Received message', event);
+        if (!(event.data instanceof ArrayBuffer)) {
+            console.error("Received bogus-amogus message from server. Expected binary data", event);
+            ws?.close();
+        }
+        const view = new DataView(event.data);
         if (me === undefined) {
-            const message = JSON.parse(event.data)
-            if (common.isHello(message)) {
+            if (common.HelloStruct.verify(view)) {
                 me = {
-                    id: message.id,
-                    x: message.x,
-                    y: message.y,
-                    moving: {
-                        'left': false,
-                        'right': false,
-                        'up': false,
-                        'down': false,
-                    },
-                    hue: message.hue,
-                };
-                players.set(message.id, me)
-                // console.log(`Connected as player ${me.id}`);
+                    id: common.HelloStruct.id.read(view),
+                    x: common.HelloStruct.x.read(view),
+                    y: common.HelloStruct.y.read(view),
+                    moving: 0,
+                    hue: common.HelloStruct.hue.read(view)/256*360,
+                }
+                players.set(me.id, me)
             } else {
-                console.log("Received bogus-amogus message from server", message)
+                console.error("Received bogus-amogus message from server. Incorrect `Hello` message.", view)
                 ws?.close();
             }
         } else {
-            const message = JSON.parse(event.data)
-            // console.log('Received message', message);
-            if (common.isPlayerJoined(message)) {
-                players.set(message.id, {
-                    id: message.id,
-                    x: message.x,
-                    y: message.y,
-                    moving: {
-                        'left': false,
-                        'right': false,
-                        'up': false,
-                        'down': false,
-                    },
-                    hue: message.hue,
-                })
-            } else if (common.isPlayerLeft(message)) {
-                players.delete(message.id)
-            } else if (common.isPlayerMoving(message)) {
-                const player = players.get(message.id);
+            if (common.PlayerJoinedStruct.verify(view)) {
+                const id = common.PlayerJoinedStruct.id.read(view);
+                const player = {
+                    id,
+                    x: common.PlayerJoinedStruct.x.read(view),
+                    y: common.PlayerJoinedStruct.y.read(view),
+                    moving: common.PlayerJoinedStruct.moving.read(view),
+                    hue: common.PlayerJoinedStruct.hue.read(view)/256*360,
+                }
+                players.set(id, player);
+            } else if (common.PlayerLeftStruct.verify(view)) {
+                players.delete(common.PlayerLeftStruct.id.read(view))
+            } else if (common.PlayerMovingStruct.verify(view)) {
+                const id = common.PlayerMovingStruct.id.read(view);
+                const player = players.get(id);
                 if (player === undefined) {
-                    console.log(`Received bogus-amogus message from server. We don't know anything about player with id ${message.id}`, message)
+                    console.error(`Received bogus-amogus message from server. We don't know anything about player with id ${id}`)
                     ws?.close();
                     return;
                 }
-                player.moving[message.direction] = message.start;
-                player.x = message.x;
-                player.y = message.y;
+                player.moving = common.PlayerMovingStruct.moving.read(view);
+                player.x = common.PlayerMovingStruct.x.read(view);
+                player.y = common.PlayerMovingStruct.y.read(view);
+            } else if (common.PingPongStruct.verifyPong(view)) {
+                ping = performance.now() - common.PingPongStruct.timestamp.read(view);
             } else {
-                console.log("Received bogus-amogus message from server", message)
+                console.error("Received bogus-amogus message from server.", view)
                 ws?.close();
             }
         }
@@ -91,7 +90,9 @@ const DIRECTION_KEYS: {[key: string]: Direction} = {
         console.log("WEBSOCKET OPEN", event)
     });
 
+    const PING_COOLDOWN = 60;
     let previousTimestamp = 0;
+    let pingCooldown = PING_COOLDOWN;
     const frame = (timestamp: number) => {
         const deltaTime = (timestamp - previousTimestamp)/1000;
         previousTimestamp = timestamp;
@@ -125,6 +126,20 @@ const DIRECTION_KEYS: {[key: string]: Direction} = {
                 ctx.strokeRect(me.x, me.y, common.PLAYER_SIZE, common.PLAYER_SIZE);
                 ctx.stroke();
             }
+
+            ctx.font = "18px bold";
+            ctx.fillStyle = 'white';
+            const padding = ctx.canvas.width*0.05;
+            ctx.fillText(`Ping: ${ping.toFixed(2)}ms`, padding, padding);
+
+            pingCooldown -= 1;
+            if (pingCooldown <= 0) {
+                const view = new DataView(new ArrayBuffer(common.PingPongStruct.size));
+                common.PingPongStruct.kind.write(view, common.MessageKind.Ping);
+                common.PingPongStruct.timestamp.write(view, performance.now());
+                ws.send(view);
+                pingCooldown = PING_COOLDOWN;
+            }
         }
         window.requestAnimationFrame(frame);
     }
@@ -138,11 +153,11 @@ const DIRECTION_KEYS: {[key: string]: Direction} = {
             if (!e.repeat) {
                 const direction = DIRECTION_KEYS[e.code];
                 if (direction !== undefined) {
-                    common.sendMessage<AmmaMoving>(ws, {
-                        kind: 'AmmaMoving',
-                        start: true,
-                        direction
-                    })
+                    const view = new DataView(new ArrayBuffer(common.AmmaMovingStruct.size));
+                    common.AmmaMovingStruct.kind.write(view, common.MessageKind.AmmaMoving);
+                    common.AmmaMovingStruct.start.write(view, 1);
+                    common.AmmaMovingStruct.direction.write(view, direction);
+                    ws.send(view);
                 }
             }
         }
@@ -152,11 +167,11 @@ const DIRECTION_KEYS: {[key: string]: Direction} = {
             if (!e.repeat) {
                 const direction = DIRECTION_KEYS[e.code];
                 if (direction !== undefined) {
-                    common.sendMessage<AmmaMoving>(ws, {
-                        kind: 'AmmaMoving',
-                        start: false,
-                        direction
-                    });
+                    const view = new DataView(new ArrayBuffer(common.AmmaMovingStruct.size));
+                    common.AmmaMovingStruct.kind.write(view, common.MessageKind.AmmaMoving);
+                    common.AmmaMovingStruct.start.write(view, 0);
+                    common.AmmaMovingStruct.direction.write(view, direction);
+                    ws.send(view);
                 }
             }
         }

@@ -1,5 +1,3 @@
-import type * as ws from 'ws';
-
 export const SERVER_PORT = 6970;
 export const WORLD_FACTOR = 200;
 export const WORLD_WIDTH = 4*WORLD_FACTOR;
@@ -7,130 +5,171 @@ export const WORLD_HEIGHT = 3*WORLD_FACTOR;
 export const PLAYER_SIZE = 30;
 export const PLAYER_SPEED = 500;
 
-export type Direction = 'left' | 'right' | 'up' | 'down';
-
-type Moving = {
-    [key in Direction]: boolean
+export enum Direction {
+    Left = 0,
+    Right,
+    Up,
+    Down,
+    Count,
 }
 
 export type Vector2 = {x: number, y: number};
-export const DIRECTION_VECTORS: {[key in Direction]: Vector2} = {
-    'left':  {x: -1, y: 0},
-    'right': {x: 1, y: 0},
-    'up':    {x: 0, y: -1},
-    'down':  {x: 0, y: 1},
-};
-
-function isDirection(arg: any): arg is Direction {
-    return DIRECTION_VECTORS[arg as Direction] !== undefined;
-}
+export const DIRECTION_VECTORS: Vector2[] = (() => {
+    console.assert(Direction.Count == 4, "The definition of Direction have changed");
+    const vectors = Array(Direction.Count);
+    vectors[Direction.Left]  = {x: -1, y: 0};
+    vectors[Direction.Right] = {x: 1, y: 0};
+    vectors[Direction.Up]    = {x: 0, y: -1};
+    vectors[Direction.Down]  = {x: 0, y: 1};
+    return vectors;
+})()
 
 export interface Player {
     id: number,
     x: number,
     y: number,
-    moving: Moving,
+    moving: number,
     hue: number,
 }
 
-export function isNumber(arg: any): arg is number {
-    return typeof(arg) === 'number';
+export enum MessageKind {
+    Hello,
+    PlayerJoined,
+    PlayerLeft,
+    PlayerMoving,
+    AmmaMoving,
+    Ping,
+    Pong,
 }
 
-export function isString(arg: any): arg is string {
-    return typeof(arg) === 'string';
+interface Field {
+    offset: number,
+    size: number,
+    read(view: DataView): number;
+    write(view: DataView, value: number): void;
 }
 
-export function isBoolean(arg: any): arg is boolean {
-    return typeof(arg) === 'boolean';
+const UINT8_SIZE = 1;
+const UINT32_SIZE = 4;
+const FLOAT32_SIZE = 4;
+
+function allocUint8Field(allocator: { size: number }): Field {
+    const offset = allocator.size;
+    const size = UINT8_SIZE;
+    allocator.size += size;
+    return {
+        offset,
+        size,
+        read: (view) => view.getUint8(offset),
+        write: (view, value) => view.setUint8(offset, value)
+    }
 }
 
-export interface Hello {
-    kind: "Hello",
-    id: number,
-    x: number,
-    y: number,
-    hue: number,
+function allocUint32Field(allocator: { size: number }): Field {
+    const offset = allocator.size;
+    const size = UINT32_SIZE;
+    allocator.size += size;
+    return {
+        offset,
+        size,
+        read: (view) => view.getUint32(offset, true),
+        write: (view, value) => view.setUint32(offset, value, true)
+    }
 }
 
-export function isHello(arg: any): arg is Hello {
-    return arg
-        && arg.kind === 'Hello'
-        && isNumber(arg.id);
+function allocFloat32Field(allocator: { size: number }): Field {
+    const offset = allocator.size;
+    const size = FLOAT32_SIZE;
+    allocator.size += size;
+    return {
+        offset,
+        size,
+        read: (view) => view.getFloat32(offset, true),
+        write: (view, value) => view.setFloat32(offset, value, true)
+    }
 }
 
-export interface PlayerJoined {
-    kind: 'PlayerJoined',
-    id: number,
-    x: number,
-    y: number,
-    hue: number,
+function verifier(kindField: Field, kind: number, size: number): (view: DataView) => boolean {
+    return (view) =>
+        view.byteLength == size &&
+        kindField.read(view) == kind
 }
 
-export function isPlayerJoined(arg: any): arg is PlayerJoined {
-    return arg
-        && arg.kind === 'PlayerJoined'
-        && isNumber(arg.id)
-        && isNumber(arg.x)
-        && isNumber(arg.y)
-        && isNumber(arg.hue)
-}
+export const PingPongStruct = (() => {
+    const allocator = { size: 0 };
+    const kind     = allocUint8Field(allocator);
+    const timestamp = allocUint32Field(allocator);
+    const size = allocator.size;
+    const verifyPing = verifier(kind, MessageKind.Ping, size);
+    const verifyPong = verifier(kind, MessageKind.Pong, size);
+    return {kind, timestamp, size, verifyPing, verifyPong}
+})();
 
-export interface PlayerLeft {
-    kind: 'PlayerLeft',
-    id: number,
-}
+export const HelloStruct = (() => {
+    const allocator = { size: 0 };
+    const kind     = allocUint8Field(allocator);
+    const id       = allocUint32Field(allocator);
+    const x        = allocFloat32Field(allocator);
+    const y        = allocFloat32Field(allocator);
+    const hue      = allocUint8Field(allocator);
+    const size     = allocator.size;
+    const verify = verifier(kind, MessageKind.Hello, size);
+    return {kind, id, x, y, hue, size, verify}
+})();
 
-export function isPlayerLeft(arg: any): arg is PlayerLeft {
-    return arg
-        && arg.kind === 'PlayerLeft'
-        && isNumber(arg.id)
-}
+export const PlayerJoinedStruct = (() => {
+    const allocator = { size: 0 };
+    const kind   = allocUint8Field(allocator);
+    const id     = allocUint32Field(allocator);
+    const x      = allocFloat32Field(allocator);
+    const y      = allocFloat32Field(allocator);
+    const hue    = allocUint8Field(allocator);
+    const moving = allocUint8Field(allocator);
+    const size   = allocator.size;
+    const verify = verifier(kind, MessageKind.PlayerJoined, size);
+    return {kind, id, x, y, hue, moving, size, verify};
+})();
 
-export interface AmmaMoving {
-    kind: 'AmmaMoving',
-    start: boolean,
-    direction: Direction,
-}
+export const PlayerLeftStruct = (() => {
+    const allocator = { size: 0 };
+    const kind     = allocUint8Field(allocator);
+    const id       = allocUint32Field(allocator);
+    const size     = allocator.size;
+    const verify = verifier(kind, MessageKind.PlayerLeft, size);
+    return {kind, id, size, verify};
+})();
 
-export function isAmmaMoving(arg: any): arg is AmmaMoving {
-    return arg
-        && arg.kind === 'AmmaMoving'
-        && isBoolean(arg.start)
-        && isDirection(arg.direction);
-}
+export const AmmaMovingStruct = (() => {
+    const allocator = { size: 0 };
+    const kind      = allocUint8Field(allocator);
+    const direction = allocUint8Field(allocator);
+    const start     = allocUint8Field(allocator);
+    const size      = allocator.size;
+    const verify    = verifier(kind, MessageKind.AmmaMoving, size);
+    return {kind, direction, start, size, verify}
+})();
 
-export interface PlayerMoving {
-    kind: 'PlayerMoving',
-    id: number,
-    x: number,
-    y: number,
-    start: boolean,
-    direction: Direction,
-}
-
-export function isPlayerMoving(arg: any): arg is PlayerMoving {
-    return arg
-        && arg.kind === 'PlayerMoving'
-        && isNumber(arg.id)
-        && isNumber(arg.x)
-        && isNumber(arg.y)
-        && isBoolean(arg.start)
-        && isDirection(arg.direction);
-}
-
-export type Event = PlayerJoined | PlayerLeft | PlayerMoving;
+export const PlayerMovingStruct = (() => {
+    const allocator = { size: 0 };
+    const kind   = allocUint8Field(allocator);
+    const id     = allocUint32Field(allocator);
+    const x      = allocFloat32Field(allocator);
+    const y      = allocFloat32Field(allocator);
+    const moving = allocUint8Field(allocator);
+    const size   = allocator.size;
+    const verify = verifier(kind, MessageKind.PlayerMoving, size);
+    return {kind, id, x, y, moving, size, verify};
+})();
 
 function properMod(a: number, b: number): number {
     return (a%b + b)%b;
 }
 
 export function updatePlayer(player: Player, deltaTime: number) {
-    let dir: Direction;
     let dx = 0;
     let dy = 0;
-    for (dir in DIRECTION_VECTORS) {
-        if (player.moving[dir]) {
+    for (let dir = 0; dir < Direction.Count; dir += 1) {
+        if ((player.moving>>dir)&1) {
             dx += DIRECTION_VECTORS[dir].x;
             dy += DIRECTION_VECTORS[dir].y;
         }
@@ -142,14 +181,4 @@ export function updatePlayer(player: Player, deltaTime: number) {
     }
     player.x = properMod(player.x + dx*PLAYER_SPEED*deltaTime, WORLD_WIDTH);
     player.y = properMod(player.y + dy*PLAYER_SPEED*deltaTime, WORLD_HEIGHT);
-}
-
-interface Message {
-    kind: string,
-}
-
-export function sendMessage<T extends Message>(socket: ws.WebSocket | WebSocket, message: T): number {
-    const text = JSON.stringify(message);
-    socket.send(text);
-    return text.length;
 }

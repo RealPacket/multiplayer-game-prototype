@@ -1,6 +1,6 @@
 import {WebSocketServer, WebSocket} from 'ws';
 import * as common from './common.mjs'
-import {PlayerMoving, PlayerJoined, PlayerLeft, Player, Event, Hello, Direction} from './common.mjs'
+import {Player} from './common.mjs';
 
 namespace Stats {
     const AVERAGE_CAPACITY = 30;
@@ -123,21 +123,24 @@ namespace Stats {
 const SERVER_FPS = 60;
 const SERVER_LIMIT = 69;
 
-interface PlayerWithSocket extends Player {
-    ws: WebSocket
+interface PlayerOnServer extends Player {
+    ws: WebSocket,
+    newMoving: number,
 }
 
-const players = new Map<number, PlayerWithSocket>();
+const players = new Map<number, PlayerOnServer>();
 let idCounter = 0;
-let eventQueue: Array<Event> = [];
 let bytesReceivedWithinTick = 0;
+let messagesRecievedWithinTick = 0;
 const wss = new WebSocketServer({
     port: common.SERVER_PORT,
 })
 const joinedIds = new Set<number>()
 const leftIds = new Set<number>()
+const pingIds = new Map<number, number>()
 
 wss.on("connection", (ws) => {
+    ws.binaryType = 'arraybuffer';
     if (players.size >= SERVER_LIMIT) {
         Stats.playersRejected.counter += 1
         ws.close();
@@ -152,48 +155,44 @@ wss.on("connection", (ws) => {
         id,
         x,
         y,
-        moving: {
-            'left': false,
-            'right': false,
-            'up': false,
-            'down': false,
-        },
+        moving: 0,
+        newMoving: 0,
         hue,
+        moved: false,
     }
     players.set(id, player);
     // console.log(`Player ${id} connected`);
-    eventQueue.push({
-        kind: 'PlayerJoined',
-        id, x, y, hue
-    })
+    joinedIds.add(id);
     Stats.playersJoined.counter += 1;
     Stats.playersCurrently.counter += 1;
     ws.addEventListener("message", (event) => {
         Stats.messagesReceived.counter += 1;
-        Stats.bytesReceived.counter += event.data.toString().length;
-        bytesReceivedWithinTick += event.data.toString().length;
-        let message;
-        try {
-            message = JSON.parse(event.data.toString());
-        } catch(e) {
+        messagesRecievedWithinTick += 1;
+
+        if (!(event.data instanceof ArrayBuffer)){
             Stats.bogusAmogusMessages.counter += 1;
-            // console.log(`Recieved bogus-amogus message from client ${id} on parsing JSON:`, event.data);
+            // console.log(`Received bogus-amogus message from client ${id}:`, message)
             ws.close();
             return;
         }
-        if (common.isAmmaMoving(message)) {
+
+        const view = new DataView(event.data);
+        Stats.bytesReceived.counter += view.byteLength;
+        bytesReceivedWithinTick += view.byteLength;
+        if (common.AmmaMovingStruct.verify(view)) {
             // console.log(`Received message from player ${id}`, message)
-            eventQueue.push({
-                kind: 'PlayerMoving',
-                id,
-                x: player.x,
-                y: player.y,
-                start: message.start,
-                direction: message.direction,
-            });
+            const direction = common.AmmaMovingStruct.direction.read(view);
+            const start = common.AmmaMovingStruct.start.read(view);
+            if (start) {
+                player.newMoving |= (1<<direction);
+            } else {
+                player.newMoving &= ~(1<<direction);
+            }
+        } else if (common.PingPongStruct.verifyPing(view)) {
+            pingIds.set(id, common.PingPongStruct.timestamp.read(view));
         } else {
-            Stats.bogusAmogusMessages.counter += 1;
             // console.log(`Received bogus-amogus message from client ${id}:`, message)
+            Stats.bogusAmogusMessages.counter += 1;
             ws.close();
             return;
         }
@@ -203,10 +202,9 @@ wss.on("connection", (ws) => {
         players.delete(id);
         Stats.playersLeft.counter += 1;
         Stats.playersCurrently.counter -= 1;
-        eventQueue.push({
-            kind: 'PlayerLeft',
-            id
-        })
+        if (!joinedIds.delete(id)) {
+            leftIds.add(id);
+        }
     })
 })
 
@@ -218,61 +216,34 @@ function tick() {
     let messageSentCounter = 0;
     let bytesSentCounter = 0;
 
-    joinedIds.clear();
-    leftIds.clear();
-
-    // This makes sure that if somebody joined and left within a single tick they are never handled
-    for (const event of eventQueue) {
-        switch (event.kind) {
-            case 'PlayerJoined': {
-                joinedIds.add(event.id);
-            } break;
-            case 'PlayerLeft': {
-                if (!joinedIds.delete(event.id)) {
-                    leftIds.add(event.id);
-                }
-            } break;
-        }
-    }
-
     // Greeting all the joined players and notifying them about other players
     joinedIds.forEach((joinedId) => {
         const joinedPlayer = players.get(joinedId);
         if (joinedPlayer !== undefined) { // This should never happen, but we handling none existing ids for more robustness
             // The greetings
-            bytesSentCounter += common.sendMessage<Hello>(joinedPlayer.ws, {
-                kind: 'Hello',
-                id: joinedPlayer.id,
-                x: joinedPlayer.x,
-                y: joinedPlayer.y,
-                hue: joinedPlayer.hue,
-            })
+            const view = new DataView(new ArrayBuffer(common.HelloStruct.size));
+            common.HelloStruct.kind.write(view, common.MessageKind.Hello);
+            common.HelloStruct.id.write(view, joinedPlayer.id);
+            common.HelloStruct.x.write(view, joinedPlayer.x);
+            common.HelloStruct.y.write(view, joinedPlayer.y);
+            common.HelloStruct.hue.write(view, Math.floor(joinedPlayer.hue/360*256));
+            joinedPlayer.ws.send(view);
+            bytesSentCounter += view.byteLength;
             messageSentCounter += 1
+
             // Reconstructing the state of the other players
             players.forEach((otherPlayer) => {
                 if (joinedId !== otherPlayer.id) { // Joined player should already know about themselves
-                    bytesSentCounter += common.sendMessage<PlayerJoined>(joinedPlayer.ws, {
-                        kind: 'PlayerJoined',
-                        id: otherPlayer.id,
-                        x: otherPlayer.x,
-                        y: otherPlayer.y,
-                        hue: otherPlayer.hue,
-                    })
+                    const view = new DataView(new ArrayBuffer(common.PlayerJoinedStruct.size))
+                    common.PlayerJoinedStruct.kind.write(view, common.MessageKind.PlayerJoined);
+                    common.PlayerJoinedStruct.id.write(view, otherPlayer.id);
+                    common.PlayerJoinedStruct.x.write(view, otherPlayer.x);
+                    common.PlayerJoinedStruct.y.write(view, otherPlayer.y);
+                    common.PlayerJoinedStruct.hue.write(view, otherPlayer.hue/360*256);
+                    common.PlayerJoinedStruct.moving.write(view, otherPlayer.moving);
+                    joinedPlayer.ws.send(view);
+                    bytesSentCounter += view.byteLength;
                     messageSentCounter += 1
-                    let direction: Direction;
-                    for (direction in otherPlayer.moving) {
-                        if (otherPlayer.moving[direction]) {
-                            bytesSentCounter += common.sendMessage<PlayerMoving>(joinedPlayer.ws, {
-                                kind: 'PlayerMoving',
-                                id: otherPlayer.id,
-                                x: otherPlayer.x,
-                                y: otherPlayer.y,
-                                start: true,
-                                direction
-                            })
-                            messageSentCounter += 1
-                        }
-                    }
                 }
             })
         }
@@ -282,15 +253,17 @@ function tick() {
     joinedIds.forEach((joinedId) => {
         const joinedPlayer = players.get(joinedId);
         if (joinedPlayer !== undefined) { // This should never happen, but we handling none existing ids for more robustness
+            const view = new DataView(new ArrayBuffer(common.PlayerJoinedStruct.size))
+            common.PlayerJoinedStruct.kind.write(view, common.MessageKind.PlayerJoined);
+            common.PlayerJoinedStruct.id.write(view, joinedPlayer.id);
+            common.PlayerJoinedStruct.x.write(view, joinedPlayer.x);
+            common.PlayerJoinedStruct.y.write(view, joinedPlayer.y);
+            common.PlayerJoinedStruct.hue.write(view, joinedPlayer.hue/360*256);
+            common.PlayerJoinedStruct.moving.write(view, joinedPlayer.moving);
             players.forEach((otherPlayer) => {
                 if (joinedId !== otherPlayer.id) { // Joined player should already know about themselves
-                    bytesSentCounter += common.sendMessage<PlayerJoined>(otherPlayer.ws, {
-                        kind: 'PlayerJoined',
-                        id: joinedPlayer.id,
-                        x: joinedPlayer.x,
-                        y: joinedPlayer.y,
-                        hue: joinedPlayer.hue,
-                    })
+                    otherPlayer.ws.send(view);
+                    bytesSentCounter += view.byteLength;
                     messageSentCounter += 1
                 }
             })
@@ -299,49 +272,66 @@ function tick() {
 
     // Notifying about who left
     leftIds.forEach((leftId) => {
+        const view = new DataView(new ArrayBuffer(common.PlayerLeftStruct.size))
+        common.PlayerJoinedStruct.kind.write(view, common.MessageKind.PlayerLeft);
+        common.PlayerJoinedStruct.id.write(view, leftId);
         players.forEach((player) => {
-            bytesSentCounter += common.sendMessage<PlayerLeft>(player.ws, {
-                kind: 'PlayerLeft',
-                id: leftId,
-            });
+            player.ws.send(view);
+            bytesSentCounter += view.byteLength;
             messageSentCounter += 1
         })
     })
 
-    // Notifying about the movements
-    for (let event of eventQueue) {
-        switch (event.kind) {
-            case 'PlayerMoving': {
-                const player = players.get(event.id);
-                if (player !== undefined) { // This MAY happen if somebody joined, moved and left within a single tick. Just skipping.
-                    player.moving[event.direction] = event.start;
-                    const eventString = JSON.stringify(event);
-                    players.forEach((player) => {
-                        player.ws.send(eventString)
-                        messageSentCounter += 1
-                        bytesSentCounter += eventString.length
-                    });
-                }
-            } break;
-        }
-    }
+    players.forEach((player) => {
+        if (player.newMoving !== player.moving) {
+            player.moving = player.newMoving;
 
+            const view = new DataView(new ArrayBuffer(common.PlayerMovingStruct.size));
+            common.PlayerMovingStruct.kind.write(view, common.MessageKind.PlayerMoving);
+            common.PlayerMovingStruct.id.write(view, player.id);
+            common.PlayerMovingStruct.x.write(view, player.x);
+            common.PlayerMovingStruct.y.write(view, player.y);
+            common.PlayerMovingStruct.moving.write(view, player.moving);
+
+            players.forEach((otherPlayer) => {
+                otherPlayer.ws.send(view);
+                bytesSentCounter += view.byteLength;
+                messageSentCounter += 1;
+            });
+        }
+    });
 
     // Simulating the world for one server tick.
     players.forEach((player) => common.updatePlayer(player, deltaTime))
+
+    // Sending out pings
+    pingIds.forEach((timestamp, id) => {
+        const player = players.get(id);
+        if (player !== undefined) { // This MAY happen. A player may send a ping and leave.
+            const view = new DataView(new ArrayBuffer(common.PingPongStruct.size));
+            common.PingPongStruct.kind.write(view, common.MessageKind.Pong);
+            common.PingPongStruct.timestamp.write(view, timestamp);
+            player.ws.send(view);
+            bytesSentCounter += view.byteLength;
+            messageSentCounter += 1;
+        }
+    });
 
     const tickTime = performance.now() - timestamp;
     Stats.ticksCount.counter += 1;
     Stats.tickTimes.pushSample(tickTime/1000);
     Stats.messagesSent.counter += messageSentCounter;
     Stats.tickMessagesSent.pushSample(messageSentCounter);
-    Stats.tickMessagesReceived.pushSample(eventQueue.length);
+    Stats.tickMessagesReceived.pushSample(messagesRecievedWithinTick);
     Stats.bytesSent.counter += bytesSentCounter;
     Stats.tickByteSent.pushSample(bytesSentCounter);
     Stats.tickByteReceived.pushSample(bytesReceivedWithinTick);
 
-    eventQueue.length = 0;
+    joinedIds.clear();
+    leftIds.clear();
+    pingIds.clear();
     bytesReceivedWithinTick = 0;
+    messagesRecievedWithinTick = 0;
 
     if (Stats.ticksCount.counter%SERVER_FPS === 0) {
         // TODO: serve the stats over a separate websocket, so a separate html page can poll it once in a while
